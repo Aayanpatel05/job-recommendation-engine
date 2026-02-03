@@ -1,60 +1,40 @@
-############################
-# Python
-############################
+# Python cache
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-.Python
 
-# Virtual environments
+# Virtual environment
 venv/
-.venv/
-ENV/
 env/
 
-############################
-# Jupyter
-############################
-.ipynb_checkpoints/
-
-############################
-# Data & ML Artifacts
-############################
-data/*
+# Data files (LARGE)
+data/raw/*
+data/processed/*
+data/embeddings/*
 !data/.gitkeep
-!data/**/.gitkeep
 
+# Models (LARGE)
 models/*
 !models/.gitkeep
-!models/**/.gitkeep
 
-*.npy
-*.npz
-*.parquet
-*.faiss
-*.index
+# Notebook checkpoints (temporary)
+.ipynb_checkpoints/
 
-############################
-# Logs & Testing
-############################
-*.log
-logs/
-.pytest_cache/
-htmlcov/
-.coverage
+# DON'T ignore *.ipynb - we want to track notebooks!
+# nbstripout will handle the outputs
 
-############################
-# Environment variables
-############################
+# Environment
 .env
-.env.*
-!.env.example
 
-############################
-# IDE / OS
-############################
+# IDE
 .vscode/
 .idea/
 .DS_Store
-Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+logs/
+*.log
