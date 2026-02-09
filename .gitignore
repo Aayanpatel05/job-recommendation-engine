@@ -38,3 +38,5 @@ htmlcov/
 # Logs
 logs/
 *.logpostings.csv
+# Data files
+*.csv
