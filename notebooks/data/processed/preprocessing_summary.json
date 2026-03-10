@@ -1,0 +1,86 @@
+{
+  "preprocessing_date": "2026-03-10 17:32:21",
+  "total_jobs": 123849,
+  "rows_before_cleaning": 123849,
+  "rows_after_cleaning": 123849,
+  "skill_coverage": {
+    "has_skills": 84433,
+    "missing": 39416,
+    "percentage": 68.17414755064635
+  },
+  "experience_coverage": {
+    "specified": 113595,
+    "not_specified": 10254,
+    "percentage": 91.72056294358453
+  },
+  "experience_distribution": {
+    "Mid-Senior level": 49525,
+    "Entry level": 37819,
+    "Associate": 15710,
+    "NaN": 10254,
+    "Director": 5303,
+    "Internship": 2067,
+    "Director/Executive": 1633,
+    "Executive": 1538
+  },
+  "text_statistics": {
+    "title": {
+      "mean_length": 31.113178144353203,
+      "median_length": 28.0,
+      "min_length": 0,
+      "max_length": 194
+    },
+    "description": {
+      "mean_length": 1826.2291984594142,
+      "median_length": 1979.0,
+      "min_length": 0,
+      "max_length": 2000
+    },
+    "skills_desc": {
+      "mean_length": 185.12460334762494,
+      "median_length": 93.0,
+      "min_length": 0,
+      "max_length": 999
+    }
+  },
+  "columns": [
+    "job_id",
+    "company_name",
+    "title",
+    "description",
+    "max_salary",
+    "pay_period",
+    "location",
+    "company_id",
+    "views",
+    "med_salary",
+    "min_salary",
+    "formatted_work_type",
+    "applies",
+    "original_listed_time",
+    "remote_allowed",
+    "job_posting_url",
+    "application_url",
+    "application_type",
+    "expiry",
+    "closed_time",
+    "formatted_experience_level",
+    "skills_desc",
+    "listed_time",
+    "posting_domain",
+    "sponsored",
+    "work_type",
+    "currency",
+    "compensation_type",
+    "normalized_salary",
+    "zip_code",
+    "fips",
+    "title_clean",
+    "skills_clean",
+    "description_clean",
+    "title_len",
+    "skills_len",
+    "description_len"
+  ],
+  "next_step": "Generate embeddings separately per column for recommendation model"
+}
