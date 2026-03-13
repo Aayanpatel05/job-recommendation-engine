@@ -40,3 +40,5 @@ logs/
 *.logpostings.csv
 # Data files
 *.csv
+*.npy
+*.json
