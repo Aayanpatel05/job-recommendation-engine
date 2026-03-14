@@ -42,3 +42,4 @@ logs/
 *.csv
 *.npy
 *.json
+*.bin
