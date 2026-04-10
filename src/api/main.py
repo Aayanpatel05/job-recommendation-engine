@@ -1,8 +1,10 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from src.core.recommendation_engine import RecommendationEngine
 from src.core.resume_parser import extract_text_from_resume, clean_resume_text
+from src.core.job_fetcher import fetch_jobs
 import tempfile
 import os
+import pandas as pd
 
 app = FastAPI(title='Job Recommendation API')
 
@@ -37,8 +39,21 @@ async def recommend(file: UploadFile = File(...), top_k: int = 10):
         resume_text = extract_text_from_resume(tmp_file_path)  # make sure this reads bytes, not text
         resume_text = clean_resume_text(resume_text)
         
-        recommendations = engine.search_jobs(resume_text, k=top_k)
-        return {"recommendations": recommendations.to_dict(orient='records')}
+        jobs = fetch_jobs(query="data scientist")
+        jobs_df = pd.DataFrame(jobs)
+
+        if jobs_df.empty:
+            raise HTTPException(status_code=500,detail="No jobs fetched from API.")
+        
+        recommendations = engine.search_jobs_from_df(
+            resume_text,
+            jobs_df,
+            k=top_k
+        )
+        return {
+            "source": "live_api",
+            "recommendations": recommendations.to_dict(orient='records')
+        }
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

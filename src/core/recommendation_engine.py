@@ -43,3 +43,16 @@ class RecommendationEngine:
 
         similar_jobs['similarity'] = scores[0][1:]
         return similar_jobs[['job_id','title','similarity','company_id','location']]
+    
+    def search_jobs_from_df(self, resume_text, jobs_df, k=10):
+        job_descriptions = jobs_df["description"].fillna("").tolist()
+
+        job_embeddings = self.model.encode(job_descriptions)
+        resume_embedding = self.model.encode([resume_text])
+
+        import numpy as np
+        similarities = np.dot(job_embeddings, resume_embedding.T).flatten()
+
+        jobs_df["similarity"] = similarities
+
+        return jobs_df.sort_values(by="similarity", ascending=False).head(k)
