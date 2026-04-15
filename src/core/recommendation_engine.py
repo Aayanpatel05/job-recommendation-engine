@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import re
 import faiss
 from sentence_transformers import SentenceTransformer
 class RecommendationEngine:
@@ -45,14 +46,34 @@ class RecommendationEngine:
         return similar_jobs[['job_id','title','similarity','company_id','location']]
     
     def search_jobs_from_df(self, resume_text, jobs_df, k=10):
+        jobs_df = jobs_df.copy()
+
         job_descriptions = jobs_df["description"].fillna("").tolist()
 
         job_embeddings = self.model.encode(job_descriptions)
         resume_embedding = self.model.encode([resume_text])
 
         import numpy as np
-        similarities = np.dot(job_embeddings, resume_embedding.T).flatten()
+        semantic_scores = np.dot(job_embeddings, resume_embedding.T).flatten()
 
-        jobs_df["similarity"] = similarities
+        resume_lower = resume_text.lower()
 
-        return jobs_df.sort_values(by="similarity", ascending=False).head(k)
+        def title_score(title):
+            if not isinstance(title, str):
+                return 0
+            title = title.lower()
+            if title in resume_lower:
+                return 1.0
+            return sum(word in resume_lower for word in title.split()) / len(title.split())
+
+        jobs_df["title_score"] = jobs_df["title"].apply(title_score)
+
+        # IMPORTANT: combine scores
+        jobs_df["final_score"] = (
+            0.7 * semantic_scores +
+            0.3 * jobs_df["title_score"].values
+        )
+
+        results = jobs_df.sort_values("final_score", ascending=False).head(k)
+
+        return results[["job_id", "title", "final_score", "company", "location"]]
