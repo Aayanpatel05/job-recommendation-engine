@@ -13,7 +13,7 @@ import pandas as pd
 import logging
 
 # -----------------------
-# Logging setup (KEY FIX)
+# Logging setup
 # -----------------------
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -50,71 +50,37 @@ def home():
 @app.post("/recommend")
 async def recommend(file: UploadFile = File(...), top_k: int = 10):
 
-    logger.info("🔥 NEW CODE VERSION IS RUNNING 🔥")
-
     if engine is None:
         raise HTTPException(status_code=500, detail="Recommendation engine not available.")
 
     tmp_file_path = None
 
     try:
-        # -----------------------
         # Save uploaded resume
-        # -----------------------
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp_file:
             content = await file.read()
             tmp_file.write(content)
             tmp_file_path = tmp_file.name
 
-        # -----------------------
         # Extract resume text
-        # -----------------------
         resume_text = extract_text_from_resume(tmp_file_path)
         resume_text = clean_resume_text(resume_text)
 
-        logger.info("=== RESUME EXTRACTED ===")
-        logger.info(resume_text[:300])
-
-        # -----------------------
         # Fetch jobs from API
-        # -----------------------
         jobs = fetch_jobs(query="data scientist")
-
-        logger.info(f"RAW JOB COUNT: {len(jobs)}")
-
         jobs_df = pd.DataFrame(jobs)
 
         if jobs_df.empty:
             raise HTTPException(status_code=500, detail="No jobs fetched from API.")
 
-        # -----------------------
         # Ensure required columns exist
-        # -----------------------
         if "description" not in jobs_df.columns:
             raise HTTPException(status_code=500, detail="API response missing 'description' field.")
 
-        # -----------------------
         # Create skills column
-        # -----------------------
         jobs_df = add_description_chunks_to_skills_desc(jobs_df)
 
-        # -----------------------
-        # DEBUG: VERIFY SKILLS
-        # -----------------------
-        logger.info(f"COLUMNS: {jobs_df.columns.tolist()}")
-
-        if "skills_desc" in jobs_df.columns:
-            logger.info("=== SAMPLE SKILLS DESC ===")
-            logger.info("\n" + jobs_df[["title", "skills_desc"]].head(5).to_string())
-        else:
-            logger.error("❌ skills_desc NOT CREATED")
-
-        logger.info("=== SAMPLE FULL ROW ===")
-        logger.info(jobs_df.iloc[0].to_dict())
-
-        # -----------------------
         # Run recommendation
-        # -----------------------
         recommendations = engine.search_jobs_from_df(
             resume_text,
             jobs_df,
@@ -124,17 +90,7 @@ async def recommend(file: UploadFile = File(...), top_k: int = 10):
         if recommendations is None or recommendations.empty:
             raise HTTPException(status_code=500, detail="No recommendations generated.")
 
-        # -----------------------
-        # DEBUG RESPONSE (VERY USEFUL)
-        # -----------------------
-        debug_skills = (
-            jobs_df["skills_desc"].head(3).tolist()
-            if "skills_desc" in jobs_df.columns
-            else []
-        )
-
         return {
-            "debug_skills_sample": debug_skills,   # 👈 shows in response
             "source": "live_api",
             "recommendations": recommendations.to_dict(orient="records")
         }
