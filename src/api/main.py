@@ -56,29 +56,42 @@ async def recommend(file: UploadFile = File(...), top_k: int = 10):
     tmp_file_path = None
 
     try:
-        # Save uploaded resume
+        # Save resume
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp_file:
             content = await file.read()
             tmp_file.write(content)
             tmp_file_path = tmp_file.name
 
         # Extract resume text
-        resume_text = extract_text_from_resume(tmp_file_path)
-        resume_text = clean_resume_text(resume_text)
+        resume_text = clean_resume_text(
+            extract_text_from_resume(tmp_file_path)
+        )
 
-        # Fetch jobs from API
+        # Fetch jobs
         jobs = fetch_jobs(query="data scientist")
         jobs_df = pd.DataFrame(jobs)
 
         if jobs_df.empty:
             raise HTTPException(status_code=500, detail="No jobs fetched from API.")
 
-        # Ensure required columns exist
-        if "description" not in jobs_df.columns:
-            raise HTTPException(status_code=500, detail="API response missing 'description' field.")
+        # Validate columns
+        required_cols = ["job_id", "title", "description", "company", "location"]
+        missing = [col for col in required_cols if col not in jobs_df.columns]
+
+        if missing:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Missing columns from API: {missing}"
+            )
+
+        logger.info(f"Fetched {len(jobs_df)} jobs")
 
         # Create skills column
         jobs_df = add_description_chunks_to_skills_desc(jobs_df)
+
+        # Safety fallback
+        if "skills_desc" not in jobs_df.columns:
+            jobs_df["skills_desc"] = ""
 
         # Run recommendation
         recommendations = engine.search_jobs_from_df(
