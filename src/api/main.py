@@ -2,26 +2,20 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from src.core.recommendation_engine import RecommendationEngine
 from src.core.resume_parser import (
     extract_text_from_resume,
-    clean_resume_text,
-    add_description_chunks_to_skills_desc
+    clean_resume_text
 )
-from src.core.job_fetcher import fetch_jobs
 
 import tempfile
 import os
-import pandas as pd
 import logging
 
-# -----------------------
-# Logging setup
-# -----------------------
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Job Recommendation API")
 
 # -----------------------
-# Load engine
+# Load engine (FAISS ONLY)
 # -----------------------
 try:
     engine = RecommendationEngine(
@@ -40,12 +34,12 @@ except Exception as e:
 @app.get("/")
 def home():
     return {
-        "message": "Job Recommendation API is running. Use /recommend endpoint."
+        "message": "Job Recommendation API running (FAISS-only mode)"
     }
 
 
 # -----------------------
-# MAIN ENDPOINT
+# MAIN ENDPOINT (NO QUERY SYSTEM)
 # -----------------------
 @app.post("/recommend")
 async def recommend(file: UploadFile = File(...), top_k: int = 10):
@@ -62,41 +56,17 @@ async def recommend(file: UploadFile = File(...), top_k: int = 10):
             tmp_file.write(content)
             tmp_file_path = tmp_file.name
 
-        # Extract resume text
-        resume_text = clean_resume_text(
-            extract_text_from_resume(tmp_file_path)
-        )
+        # Extract + clean resume
+        resume_text = extract_text_from_resume(tmp_file_path)
+        resume_text = clean_resume_text(resume_text)
 
-        # Fetch jobs
-        jobs = fetch_jobs(query="data scientist")
-        jobs_df = pd.DataFrame(jobs)
+        logger.info("Resume successfully extracted")
 
-        if jobs_df.empty:
-            raise HTTPException(status_code=500, detail="No jobs fetched from API.")
-
-        # Validate columns
-        required_cols = ["job_id", "title", "description", "company", "location"]
-        missing = [col for col in required_cols if col not in jobs_df.columns]
-
-        if missing:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Missing columns from API: {missing}"
-            )
-
-        logger.info(f"Fetched {len(jobs_df)} jobs")
-
-        # Create skills column
-        jobs_df = add_description_chunks_to_skills_desc(jobs_df)
-
-        # Safety fallback
-        if "skills_desc" not in jobs_df.columns:
-            jobs_df["skills_desc"] = ""
-
-        # Run recommendation
-        recommendations = engine.search_jobs_from_df(
-            resume_text,
-            jobs_df,
+        # -----------------------
+        # PURE FAISS SEARCH
+        # -----------------------
+        recommendations = engine.search_jobs(
+            resume_text=resume_text,
             k=top_k
         )
 
@@ -104,7 +74,7 @@ async def recommend(file: UploadFile = File(...), top_k: int = 10):
             raise HTTPException(status_code=500, detail="No recommendations generated.")
 
         return {
-            "source": "live_api",
+            "source": "faiss_only",
             "recommendations": recommendations.to_dict(orient="records")
         }
 
@@ -118,7 +88,7 @@ async def recommend(file: UploadFile = File(...), top_k: int = 10):
 
 
 # -----------------------
-# Similar jobs endpoint
+# Similar jobs endpoint (UNCHANGED)
 # -----------------------
 @app.get("/similar_jobs/{job_id}")
 def similar_jobs(job_id: int, top_k: int = 10):
