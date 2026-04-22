@@ -1,4 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from contextlib import asynccontextmanager
+from src.pipeline.scheduler import start_scheduler
 from src.core.recommendation_engine import RecommendationEngine
 from src.core.resume_parser import (
     extract_text_from_resume,
@@ -12,8 +14,16 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Job Recommendation API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    start_scheduler()
 
+    yield
+
+app = FastAPI(
+    title="Job Recommendation API",
+    lifespan=lifespan
+)
 # -----------------------
 # Load engine (FAISS ONLY)
 # -----------------------
@@ -21,7 +31,7 @@ try:
     engine = RecommendationEngine(
         model_name="all-MiniLM-L6-v2",
         index_path="data/processed/faiss_index.bin",
-        jobs_path="data/processed/jobs_preprocessed.csv"
+        jobs_path="data/processed/jobs_live.csv"
     )
 except Exception as e:
     logger.error(f"Error loading RecommendationEngine: {e}")

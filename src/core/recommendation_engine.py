@@ -27,7 +27,7 @@ class RecommendationEngine:
         results = self.jobs.iloc[indices[0]].copy()
 
         results['similarity'] = scores[0]
-        return results[['job_id','title','similarity','company_id','location']]
+        return results[['job_id','title','similarity','location']]
     
     def recommend_similar_jobs(self, job_id: int, k: int = 10):
         job_index_list = self.jobs.index[self.jobs['job_id'] == job_id].tolist()
