@@ -3,8 +3,8 @@ import requests
 APP_ID="c34d3b06"
 APP_KEY="3ddfce9885a375f118d3efe96d03582c"
 
-def fetch_jobs(query="data scientist",location="us",results_per_page=20):
-    url=f"https://api.adzuna.com/v1/api/jobs/{location}/search/1"
+def fetch_jobs(query="jobs",location="us",results_per_page=50,page=1):
+    url=f"https://api.adzuna.com/v1/api/jobs/{location}/search/{page}"
 
     params={
         "app_id": APP_ID,
