@@ -21,13 +21,55 @@ class RecommendationEngine:
         faiss.normalize_L2(embedding)
         return embedding
     
-    def search_jobs(self, resume_text: str, k: int = 10 ):
-        resume_embedding = self.encode_resume(resume_text)
-        scores, indices = self.index.search(resume_embedding, k)
-        results = self.jobs.iloc[indices[0]].copy()
+    def search_jobs(self, resume_text: str, k: int = 10):
 
-        results['similarity'] = scores[0]
-        return results[['job_id','title','similarity','location']]
+        resume_embedding = self.encode_resume(resume_text)
+
+        # Retrieve more candidates first
+        scores, indices = self.index.search(resume_embedding, k * 10)
+
+        candidates = self.jobs.iloc[indices[0]].copy()
+
+        candidates["similarity"] = scores[0]
+
+        selected = []
+
+        used_titles = set()
+
+        for _, row in candidates.iterrows():
+
+            title = str(row["title"]).lower()
+
+            # normalize title
+            normalized = (
+                title.replace("senior", "")
+                    .replace("jr", "")
+                    .replace("junior", "")
+                    .replace("sr", "")
+                    .strip()
+            )
+
+            # skip near-duplicates
+            is_duplicate = any(
+                normalized in t or t in normalized
+                for t in used_titles
+            )
+
+            if is_duplicate:
+                continue
+
+            selected.append(row)
+
+            used_titles.add(normalized)
+
+            if len(selected) >= k:
+                break
+
+        results = pd.DataFrame(selected)
+
+        return results[
+            ["job_id", "title", "similarity", "location"]
+        ]
     
     def recommend_similar_jobs(self, job_id: int, k: int = 10):
         job_index_list = self.jobs.index[self.jobs['job_id'] == job_id].tolist()

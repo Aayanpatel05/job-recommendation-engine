@@ -41,6 +41,12 @@ def run_ingestion():
         print("No jobs fetched")
         return
     
+    df["title_company"] = (
+        df["title"].astype(str).str.lower() +
+        "_" +
+        df["company"].astype(str).str.lower()
+    )
+    df = df.drop_duplicates(subset=["title_company"])
     df= df.drop_duplicates(subset=['job_id'])
     
     print(f"Fetched {len(df)} jobs")
