@@ -5,24 +5,22 @@ from sentence_transformers import SentenceTransformer
 
 from src.core.job_fetcher import fetch_jobs
 from src.core.resume_parser import add_description_chunks_to_skills_desc
+from src.core.query_generator import generate_queries_from_resume
+from src.core.resume_parser import extract_text_from_resume, clean_resume_text
 
 MODEL_NAME = "all-MiniLM-L6-v2"
 JOBS_PATH = "data/processed/jobs_live.csv"
 INDEX_PATH = "data/processed/faiss_index.bin"
 
 def run_ingestion():
-    QUERIES = [
-    "jobs",
-    "remote",
-    "intern",
-    "engineer",
-    "analyst",
-    "manager",
-    "developer",
-    "assistant",
-    "specialist",
-    "coordinator" 
-    ]
+    resume_path = "/Users/patel/Downloads/resume.pdf"
+    resume_text = extract_text_from_resume(resume_path)
+    resume_text = clean_resume_text(resume_text)
+
+    QUERIES = generate_queries_from_resume(resume_text)
+
+    print("Generated Queries:")
+    print(QUERIES)
     all_jobs=[]
     print("Starting job ingestion...")
     for query in QUERIES:
