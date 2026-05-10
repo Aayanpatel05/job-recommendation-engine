@@ -52,7 +52,7 @@ def home():
 # MAIN ENDPOINT (NO QUERY SYSTEM)
 # -----------------------
 @app.post("/recommend")
-async def recommend(file: UploadFile = File(...), top_k: int = 10):
+async def recommend(file: UploadFile = File(...), top_k: int = 10, preferred_location: str = None):
 
     if engine is None:
         raise HTTPException(status_code=500, detail="Recommendation engine not available.")
@@ -77,7 +77,8 @@ async def recommend(file: UploadFile = File(...), top_k: int = 10):
         # -----------------------
         recommendations = engine.search_jobs(
             resume_text=resume_text,
-            k=top_k
+            k=top_k,
+            preferred_location=preferred_location
         )
 
         if recommendations is None or recommendations.empty:

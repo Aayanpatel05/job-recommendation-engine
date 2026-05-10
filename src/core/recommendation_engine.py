@@ -21,16 +21,50 @@ class RecommendationEngine:
         faiss.normalize_L2(embedding)
         return embedding
     
-    def search_jobs(self, resume_text: str, k: int = 10):
+    def search_jobs(self, resume_text: str, k: int = 10, preferred_location: str = None):
 
         resume_embedding = self.encode_resume(resume_text)
 
-        # Retrieve more candidates first
+        # retrieve more candidates
         scores, indices = self.index.search(resume_embedding, k * 10)
 
         candidates = self.jobs.iloc[indices[0]].copy()
 
         candidates["similarity"] = scores[0]
+
+        if preferred_location:
+
+            preferred = preferred_location.lower()
+
+            def location_boost(loc):
+
+                if not isinstance(loc, str):
+                    return 0
+
+                loc = loc.lower()
+
+                if preferred in loc:
+                    return 0.15
+
+                if "remote" in loc:
+                    return 0.08
+
+                return 0
+
+            candidates["location_bonus"] = (
+                candidates["location"].apply(location_boost)
+            )
+
+            candidates["similarity"] = (
+                candidates["similarity"]
+                + candidates["location_bonus"]
+            )
+
+        # sort again after boosting
+        candidates = candidates.sort_values(
+            "similarity",
+            ascending=False
+        )
 
         selected = []
 
@@ -40,7 +74,6 @@ class RecommendationEngine:
 
             title = str(row["title"]).lower()
 
-            # normalize title
             normalized = (
                 title.replace("senior", "")
                     .replace("jr", "")
@@ -49,7 +82,6 @@ class RecommendationEngine:
                     .strip()
             )
 
-            # skip near-duplicates
             is_duplicate = any(
                 normalized in t or t in normalized
                 for t in used_titles
@@ -87,7 +119,7 @@ class RecommendationEngine:
         similar_jobs['similarity'] = scores[0][1:]
         return similar_jobs[['job_id','title','similarity','company_id','location']]
     
-    def search_jobs_from_df(self, resume_text, jobs_df, k=10):
+    def search_jobs_from_df(self, resume_text, jobs_df, k=10, preferred_location=None):
         jobs_df = jobs_df.copy()
 
         job_descriptions = jobs_df["description"].fillna("").tolist()
@@ -114,13 +146,36 @@ class RecommendationEngine:
                 return 1.0
             return sum(word in resume_lower for word in title.split()) / max(len(title.split()),1)
 
+        def location_score(job_location):
+
+            if preferred_location is None:
+                return 0
+
+            if not isinstance(job_location, str):
+                return 0
+
+            job_location = job_location.lower()
+            preferred = preferred_location.lower()
+
+            # exact/preferred match
+            if preferred in job_location:
+                return 1.0
+
+            # remote boost
+            if "remote" in job_location:
+                return 0.7
+
+            return 0.0
+        
         jobs_df["title_score"] = jobs_df["title"].apply(title_score)
+        jobs_df["location_score"] = jobs_df["location"].apply(location_score)
 
         
         jobs_df["base_score"] = (
-            0.5 * semantic_scores + 
-            0.3 * skills_scores + 
-            0.2 * jobs_df["title_score"].values
+            0.45 * semantic_scores +
+            0.25 * skills_scores +
+            0.15 * jobs_df["title_score"].values +
+            0.15 * jobs_df["location_score"].values
         )
 
         selected = []
