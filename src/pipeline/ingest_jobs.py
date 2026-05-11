@@ -6,7 +6,7 @@ from sentence_transformers import SentenceTransformer
 from src.core.job_fetcher import fetch_jobs
 from src.core.resume_parser import add_description_chunks_to_skills_desc
 from src.core.query_generator import generate_queries_from_resume
-from src.core.resume_parser import extract_text_from_resume, clean_resume_text
+from src.core.resume_parser import extract_text_from_resume, clean_resume_text, extract_experience_level
 
 MODEL_NAME = "all-MiniLM-L6-v2"
 JOBS_PATH = "data/processed/jobs_live.csv"
@@ -47,6 +47,14 @@ def run_ingestion():
     df = df.drop_duplicates(subset=["title_company"])
     df= df.drop_duplicates(subset=['job_id'])
     
+    df["experience_level"] = df.apply(
+        lambda row: extract_experience_level(
+            row["title"],
+            row["description"],
+            row.get("experience_level")
+        ),
+        axis=1
+    )
     print(f"Fetched {len(df)} jobs")
     
     df = add_description_chunks_to_skills_desc(df)

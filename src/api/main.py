@@ -3,8 +3,9 @@ from contextlib import asynccontextmanager
 from src.pipeline.scheduler import start_scheduler
 from src.core.recommendation_engine import RecommendationEngine
 from src.core.resume_parser import (
-    extract_text_from_resume,
-    clean_resume_text
+    extract_experience_level,
+    clean_resume_text,
+    extract_text_from_resume
 )
 
 import tempfile
@@ -52,7 +53,7 @@ def home():
 # MAIN ENDPOINT (NO QUERY SYSTEM)
 # -----------------------
 @app.post("/recommend")
-async def recommend(file: UploadFile = File(...), top_k: int = 10, preferred_location: str = None):
+async def recommend(file: UploadFile = File(...), top_k: int = 10, preferred_location: str = None, experience_level: str = None):
 
     if engine is None:
         raise HTTPException(status_code=500, detail="Recommendation engine not available.")
@@ -78,7 +79,8 @@ async def recommend(file: UploadFile = File(...), top_k: int = 10, preferred_loc
         recommendations = engine.search_jobs(
             resume_text=resume_text,
             k=top_k,
-            preferred_location=preferred_location
+            preferred_location=preferred_location,
+            resume_experience=experience_level
         )
 
         if recommendations is None or recommendations.empty:

@@ -109,3 +109,86 @@ def add_description_chunks_to_skills_desc(df: pd.DataFrame,
 
     df[skills_col] = df.apply(_append, axis=1)
     return df
+
+EXPERIENCE_LEVEL_MAP = {
+    # Executive
+    "chief executive officer": "Executive",
+    "chief technology officer": "Executive",
+    "chief financial officer": "Executive",
+    "chief operating officer": "Executive",
+    "ceo": "Executive",
+    "cto": "Executive",
+    "cfo": "Executive",
+    "coo": "Executive",
+    "vice president": "Executive",
+    "vp": "Executive",
+    "general manager": "Executive",
+
+    # Director
+    "senior director": "Director",
+    "director": "Director",
+    "director of": "Director",
+    "head of": "Director",
+
+    # Senior / Mid level (merged cleanly)
+    "principal": "Senior",
+    "staff": "Senior",
+    "lead": "Senior",
+    "senior": "Senior",
+    "sr": "Senior",
+    "sr.": "Senior",
+    "manager": "Senior",
+
+    # Entry / Junior
+    "associate": "Entry",
+    "assistant": "Entry",
+    "junior": "Entry",
+    "jr": "Entry",
+
+    # Internship
+    "intern": "Intern",
+    "internship": "Intern",
+    "trainee": "Intern",
+    "apprentice": "Intern",
+}
+
+
+def extract_experience_level(title, description, existing_value=None):
+    """
+    Clean experience classifier with normalized levels.
+    """
+
+    if pd.notna(existing_value) and str(existing_value).strip():
+        return existing_value
+
+    title = str(title).lower()
+    description = str(description).lower()
+
+    # 1. Title match (highest priority)
+    for keyword, level in EXPERIENCE_LEVEL_MAP.items():
+        if keyword in title:
+            return level
+
+    # 2. Description match
+    for keyword, level in EXPERIENCE_LEVEL_MAP.items():
+        if keyword in description:
+            return level
+
+    # 3. Years-based inference
+    year_match = re.search(r'(\d+)\+?\s*years?', description)
+
+    if year_match:
+        years = int(year_match.group(1))
+
+        if years < 1:
+            return "Intern"
+        elif years < 3:
+            return "Entry"
+        elif years < 7:
+            return "Senior"
+        elif years < 12:
+            return "Director"
+        else:
+            return "Executive"
+
+    return "Unknown"
