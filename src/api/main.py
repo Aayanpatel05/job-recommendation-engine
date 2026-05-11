@@ -1,9 +1,10 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+
 from src.pipeline.scheduler import start_scheduler
 from src.core.recommendation_engine import RecommendationEngine
 from src.core.resume_parser import (
-    extract_experience_level,
     clean_resume_text,
     extract_text_from_resume
 )
@@ -15,18 +16,39 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+# -----------------------
+# Lifespan
+# -----------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     start_scheduler()
-
     yield
 
+
+# -----------------------
+# FastAPI App
+# -----------------------
 app = FastAPI(
     title="Job Recommendation API",
     lifespan=lifespan
 )
+
+
 # -----------------------
-# Load engine (FAISS ONLY)
+# CORS (IMPORTANT FOR REACT FRONTEND)
+# -----------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# -----------------------
+# Load Recommendation Engine
 # -----------------------
 try:
     engine = RecommendationEngine(
@@ -34,47 +56,70 @@ try:
         index_path="data/processed/faiss_index.bin",
         jobs_path="data/processed/jobs_live.csv"
     )
+
+    logger.info("Recommendation engine loaded successfully.")
+
 except Exception as e:
     logger.error(f"Error loading RecommendationEngine: {e}")
     engine = None
 
 
 # -----------------------
-# Health check
+# Health Check
 # -----------------------
 @app.get("/")
 def home():
     return {
-        "message": "Job Recommendation API running (FAISS-only mode)"
+        "message": "Job Recommendation API running"
     }
 
 
 # -----------------------
-# MAIN ENDPOINT (NO QUERY SYSTEM)
+# Recommend Jobs Endpoint
 # -----------------------
 @app.post("/recommend")
-async def recommend(file: UploadFile = File(...), top_k: int = 10, preferred_location: str = None, experience_level: str = None):
+async def recommend(
+    file: UploadFile = File(...),
+    top_k: int = 10,
+    preferred_location: str = None,
+    experience_level: str = None
+):
 
     if engine is None:
-        raise HTTPException(status_code=500, detail="Recommendation engine not available.")
+        raise HTTPException(
+            status_code=500,
+            detail="Recommendation engine not available."
+        )
 
     tmp_file_path = None
 
     try:
-        # Save resume
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp_file:
+
+        # -----------------------
+        # Save uploaded resume
+        # -----------------------
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=os.path.splitext(file.filename)[1]
+        ) as tmp_file:
+
             content = await file.read()
             tmp_file.write(content)
+
             tmp_file_path = tmp_file.name
 
-        # Extract + clean resume
+        logger.info("Resume uploaded successfully.")
+
+        # -----------------------
+        # Extract resume text
+        # -----------------------
         resume_text = extract_text_from_resume(tmp_file_path)
         resume_text = clean_resume_text(resume_text)
 
         logger.info("Resume successfully extracted")
 
         # -----------------------
-        # PURE FAISS SEARCH
+        # Generate recommendations
         # -----------------------
         recommendations = engine.search_jobs(
             resume_text=resume_text,
@@ -83,35 +128,67 @@ async def recommend(file: UploadFile = File(...), top_k: int = 10, preferred_loc
             resume_experience=experience_level
         )
 
+        # -----------------------
+        # Empty result handling
+        # -----------------------
         if recommendations is None or recommendations.empty:
-            raise HTTPException(status_code=500, detail="No recommendations generated.")
+            return {
+                "source": "faiss_only",
+                "recommendations": []
+            }
 
+        # -----------------------
+        # Return results
+        # -----------------------
         return {
             "source": "faiss_only",
             "recommendations": recommendations.to_dict(orient="records")
         }
 
     except Exception as e:
+
         logger.error(f"ERROR: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
     finally:
+
+        # Cleanup temp file
         if tmp_file_path and os.path.exists(tmp_file_path):
             os.remove(tmp_file_path)
 
 
 # -----------------------
-# Similar jobs endpoint (UNCHANGED)
+# Similar Jobs Endpoint
 # -----------------------
 @app.get("/similar_jobs/{job_id}")
 def similar_jobs(job_id: int, top_k: int = 10):
 
     if engine is None:
-        raise HTTPException(status_code=500, detail="Recommendation engine not available.")
+        raise HTTPException(
+            status_code=500,
+            detail="Recommendation engine not available."
+        )
 
     try:
-        recommendations = engine.recommend_similar_jobs(job_id, k=top_k)
-        return {"recommendations": recommendations.to_dict(orient="records")}
+
+        recommendations = engine.recommend_similar_jobs(
+            job_id,
+            k=top_k
+        )
+
+        return {
+            "recommendations": recommendations.to_dict(orient="records")
+        }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
+        logger.error(f"ERROR: {e}")
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
