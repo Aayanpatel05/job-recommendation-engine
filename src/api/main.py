@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from src.pipeline.scheduler import start_scheduler
+from src.pipeline.ingest_jobs import run_ingestion
 from src.core.recommendation_engine import RecommendationEngine
 from src.core.resume_parser import (
     clean_resume_text,
@@ -36,7 +37,7 @@ app = FastAPI(
 
 
 # -----------------------
-# CORS (IMPORTANT FOR REACT FRONTEND)
+# CORS
 # -----------------------
 app.add_middleware(
     CORSMiddleware,
@@ -85,11 +86,7 @@ async def recommend(
     experience_level: str = None
 ):
 
-    if engine is None:
-        raise HTTPException(
-            status_code=500,
-            detail="Recommendation engine not available."
-        )
+    global engine
 
     tmp_file_path = None
 
@@ -111,12 +108,34 @@ async def recommend(
         logger.info("Resume uploaded successfully.")
 
         # -----------------------
+        # RUN INGESTION USING USER RESUME
+        # -----------------------
+        run_ingestion(
+            resume_path=tmp_file_path,
+            jobs_path="data/processed/jobs_live.csv",
+            index_path="data/processed/faiss_index.bin"
+        )
+
+        logger.info("Job ingestion completed.")
+
+        # -----------------------
+        # Reload engine with NEW jobs
+        # -----------------------
+        engine = RecommendationEngine(
+            model_name="all-MiniLM-L6-v2",
+            index_path="data/processed/faiss_index.bin",
+            jobs_path="data/processed/jobs_live.csv"
+        )
+
+        logger.info("Recommendation engine reloaded.")
+
+        # -----------------------
         # Extract resume text
         # -----------------------
         resume_text = extract_text_from_resume(tmp_file_path)
         resume_text = clean_resume_text(resume_text)
 
-        logger.info("Resume successfully extracted")
+        logger.info("Resume successfully extracted.")
 
         # -----------------------
         # Generate recommendations

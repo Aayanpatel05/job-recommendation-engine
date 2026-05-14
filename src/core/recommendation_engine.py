@@ -27,7 +27,7 @@ class RecommendationEngine:
         return embedding
 
     # -----------------------
-    # Experience scoring
+    # Experience scoring (kept as-is)
     # -----------------------
     def experience_score(self, job_level, resume_level):
         if resume_level is None or job_level is None:
@@ -57,123 +57,79 @@ class RecommendationEngine:
             return 0.0
 
     # -----------------------
-    # Main search function
+    # Main search function (UPDATED)
     # -----------------------
     def search_jobs(
         self,
-        resume_text: str,
-        k: int = 10,
-        preferred_location: str = None,
-        user_experience_level: str = None,
-        resume_experience: str = None
+        resume_text,
+        k=10,
+        preferred_location=None,
+        resume_experience=None
     ):
 
-        resume_embedding = self.encode_resume(resume_text)
+        # Step 1: FAISS search
+        embedding = self.model.encode([resume_text]).astype("float32")
+        faiss.normalize_L2(embedding)
 
-        # FAISS retrieval
-        scores, indices = self.index.search(resume_embedding, k * 10)
-        candidates = self.jobs.iloc[indices[0]].copy()
-        candidates["similarity"] = scores[0]
+        scores, indices = self.index.search(embedding, k)
 
-        # -----------------------
-        # Location boost
-        # -----------------------
-        if preferred_location:
-
-            preferred = preferred_location.lower()
-
-            def location_boost(loc):
-                if not isinstance(loc, str):
-                    return 0
-
-                loc = loc.lower()
-
-                if preferred in loc:
-                    return 0.15
-
-                if "remote" in loc:
-                    return 0.08
-
-                return 0
-
-            candidates["similarity"] += candidates["location"].apply(location_boost)
+        matched_jobs = self.jobs.iloc[indices[0]].copy()
+        matched_jobs["similarity"] = scores[0]
 
         # -----------------------
-        # EXPERIENCE FILTER + SCORING
+        # Step 2: LOCATION BOOST (NOT FILTER)
         # -----------------------
-        effective_experience = user_experience_level or resume_experience
+        def location_boost(loc):
+            if not preferred_location:
+                return 0.0
+            if pd.isna(loc):
+                return 0.0
+            if preferred_location.lower() in str(loc).lower():
+                return 0.25
+            return 0.0
 
-        hierarchy = {
-            "Internship": 0,
-            "Entry level": 1,
-            "Associate": 2,
-            "Mid-Senior level": 3,
-            "Director": 4,
-            "Executive": 5
-        }
-
-        if effective_experience:
-
-            resume_rank = hierarchy.get(effective_experience, 1)
-
-            # HARD FILTER
-            def is_valid_experience(job_level):
-                if pd.isna(job_level):
-                    return False
-
-                job_rank = hierarchy.get(job_level, 1)
-
-                # allow ±1 band
-                return abs(job_rank - resume_rank) <= 1
-
-            candidates = candidates[
-                candidates["experience_level"].apply(is_valid_experience)
-            ]
-
-            # SOFT SCORING
-            def exp_score(row):
-                return self.experience_score(
-                    row.get("experience_level"),
-                    effective_experience
-                )
-
-            candidates["experience_score"] = candidates.apply(exp_score, axis=1)
-
-            # stronger weighting
-            candidates["similarity"] += 0.25 * candidates["experience_score"]
+        matched_jobs["location_boost"] = matched_jobs["location"].apply(location_boost)
 
         # -----------------------
-        # Remove duplicate titles
+        # Step 3: EXPERIENCE BOOST (NOT FILTER)
         # -----------------------
-        selected = []
-        used_titles = set()
+        def exp_boost(job_exp):
+            return self.experience_score(job_exp, resume_experience) * 0.3
 
-        for _, row in candidates.sort_values("similarity", ascending=False).iterrows():
+        matched_jobs["experience_boost"] = matched_jobs["experience_level"].apply(exp_boost)
 
-            title = str(row["title"]).lower()
+        # -----------------------
+        # Step 4: FINAL SCORE (HYBRID RANKING)
+        # -----------------------
+        matched_jobs["final_score"] = (
+            matched_jobs["similarity"]
+            + matched_jobs["location_boost"]
+            + matched_jobs["experience_boost"]
+        )
 
-            normalized = (
-                title.replace("senior", "")
-                     .replace("sr", "")
-                     .replace("junior", "")
-                     .replace("jr", "")
-                     .strip()
-            )
+        matched_jobs = matched_jobs.sort_values(
+            by="final_score",
+            ascending=False
+        )
 
-            if any(normalized in t or t in normalized for t in used_titles):
-                continue
-
-            selected.append(row)
-            used_titles.add(normalized)
-
-            if len(selected) >= k:
-                break
-
-        results = pd.DataFrame(selected)
-
-        return results[
-            ["job_id", "title", "similarity", "location"]
+        # -----------------------
+        # Step 5: return clean output
+        # -----------------------
+        expected_columns = [
+            "job_id",
+            "title",
+            "location",
+            "similarity",
+            "experience_level",
+            "final_score"
         ]
+
+        existing_columns = [
+            col for col in expected_columns
+            if col in matched_jobs.columns
+        ]
+
+        return matched_jobs[existing_columns]
 
     # -----------------------
     # Similar jobs (unchanged)
