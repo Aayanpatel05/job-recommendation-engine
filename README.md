@@ -1,189 +1,345 @@
-AI Job Recommendation Engine
+# AI Job Recommendation Engine
 
-An AI-powered job recommendation platform that analyzes a user’s resume, dynamically fetches live jobs, and recommends the most relevant positions using semantic similarity with transformer embeddings and FAISS vector search.
+An AI-powered job recommendation system that matches resumes to relevant job listings using NLP, sentence embeddings, and vector similarity search.
 
-Features
-Resume upload support (PDF, DOCX, TXT)
-Automatic resume text extraction
-AI-powered semantic job matching
-Live job fetching using the Adzuna API
-Dynamic query generation from resumes
-FAISS vector similarity search
-Location and experience-level score boosting
-React frontend + FastAPI backend
-Real-time recommendations
-Tech Stack
-Backend
-Python
-FastAPI
-Sentence Transformers
-FAISS
-Pandas
-spaCy
-PDFMiner
-Frontend
-React
-JavaScript
-Fetch API
-APIs
-Adzuna Jobs API
-How It Works
-User uploads a resume
-Resume text is extracted and cleaned
-NLP generates intelligent search queries from the resume
-Live jobs are fetched from the Adzuna API
-Job descriptions and resume are converted into embeddings using all-MiniLM-L6-v2
-FAISS performs semantic similarity search
-Results are boosted based on:
-Preferred location
-Experience level
-Top matching jobs are returned to the frontend
-Project Structure
+The application extracts text from a user’s resume, generates intelligent search queries, fetches live jobs from the Adzuna API, and ranks the jobs using semantic similarity with FAISS and Sentence Transformers.
+
+---
+
+# Features
+
+- Upload resumes in PDF, DOCX, or TXT format
+- Extract and clean resume text automatically
+- Generate dynamic job search queries from resume content
+- Fetch live jobs from the Adzuna Jobs API
+- Rank jobs using semantic similarity
+- Boost recommendations using:
+  - Preferred location
+  - Experience level
+- Fast vector search with FAISS
+- React frontend + FastAPI backend
+
+---
+
+# Tech Stack
+
+## Frontend
+- React
+- JavaScript
+- Fetch API
+
+## Backend
+- FastAPI
+- Python
+
+## Machine Learning / NLP
+- Sentence Transformers
+- FAISS
+- spaCy
+
+## APIs
+- Adzuna Jobs API
+
+---
+
+# Project Structure
+
+```bash
 job-recommendation-engine/
-│
-├── backend/
-│   ├── src/
-│   │   ├── api/
-│   │   ├── core/
-│   │   ├── pipeline/
-│   │   └── utils/
-│   │
-│   ├── data/
-│   └── requirements.txt
 │
 ├── frontend/
 │   ├── src/
+│   │   └── App.jsx
 │   └── package.json
 │
+├── src/
+│   ├── api/
+│   │   └── main.py
+│   │
+│   ├── core/
+│   │   ├── recommendation_engine.py
+│   │   ├── resume_parser.py
+│   │   ├── query_generator.py
+│   │   └── job_fetcher.py
+│   │
+│   └── pipeline/
+│       └── scheduler.py
+│
+├── requirements.txt
 └── README.md
-Installation
-1. Clone Repository
-git clone <your-repo-url>
+```
+
+---
+
+# How It Works
+
+## 1. Resume Upload
+The user uploads a resume through the React frontend.
+
+## 2. Resume Parsing
+The backend extracts and cleans the resume text.
+
+## 3. Query Generation
+spaCy analyzes the resume and generates multiple search queries based on important noun phrases.
+
+Example:
+```python
+[
+  "machine learning",
+  "data science",
+  "python developer",
+  "analytics projects"
+]
+```
+
+## 4. Live Job Fetching
+The system fetches relevant jobs from the Adzuna API using the generated queries.
+
+## 5. Semantic Matching
+The resume and job descriptions are converted into embeddings using:
+
+```python
+all-MiniLM-L6-v2
+```
+
+## 6. FAISS Similarity Search
+FAISS ranks the jobs based on vector similarity.
+
+## 7. Score Boosting
+Additional boosts are applied for:
+- Matching locations
+- Matching experience levels
+
+---
+
+# Installation
+
+## Clone Repository
+
+```bash
+git clone https://github.com/yourusername/job-recommendation-engine.git
+
 cd job-recommendation-engine
-Backend Setup
-2. Create Virtual Environment
-Windows
+```
+
+---
+
+# Backend Setup
+
+## Create Virtual Environment
+
+```bash
 python -m venv venv
+```
+
+## Activate Environment
+
+### Windows
+```bash
 venv\Scripts\activate
-Mac/Linux
-python3 -m venv venv
+```
+
+### Mac/Linux
+```bash
 source venv/bin/activate
-3. Install Backend Dependencies
+```
+
+---
+
+## Install Dependencies
+
+```bash
 pip install -r requirements.txt
-4. Download spaCy Model
+```
+
+---
+
+## Install spaCy Model
+
+```bash
 python -m spacy download en_core_web_sm
-5. Configure Adzuna API Keys
+```
 
-Inside job_fetcher.py:
+---
 
-APP_ID = "YOUR_APP_ID"
-APP_KEY = "YOUR_APP_KEY"
+# Frontend Setup
 
-You can get free API keys from:
-
-Adzuna Developer Portal
-
-6. Run FastAPI Backend
-uvicorn src.api.main:app --reload
-
-Backend will run at:
-
-http://127.0.0.1:8000
-
-Swagger docs:
-
-http://127.0.0.1:8000/docs
-Frontend Setup
-7. Install Frontend Dependencies
+```bash
 cd frontend
+
 npm install
-8. Run React Frontend
+```
+
+---
+
+# Environment Variables
+
+Create a `.env` file:
+
+```env
+ADZUNA_APP_ID=your_app_id
+ADZUNA_APP_KEY=your_app_key
+```
+
+---
+
+# Running the Application
+
+## Start Backend
+
+From project root:
+
+```bash
+uvicorn src.api.main:app --reload
+```
+
+Backend runs on:
+
+```bash
+http://127.0.0.1:8000
+```
+
+---
+
+## Start Frontend
+
+```bash
+cd frontend
+
 npm run dev
+```
 
-Frontend usually runs at:
+Frontend runs on:
 
+```bash
 http://localhost:5173
-API Endpoints
-Health Check
+```
+
+---
+
+# API Endpoints
+
+## Health Check
+
+```http
 GET /
+```
 
 Response:
 
+```json
 {
   "message": "Job Recommendation API running"
 }
-Recommend Jobs
+```
+
+---
+
+## Recommend Jobs
+
+```http
 POST /recommend
-Form Data
-Field	Type	Required
-file	UploadFile	Yes
-Query Parameters
-Parameter	Description
-top_k	Number of recommendations
-preferred_location	Preferred job location
-experience_level	Desired experience level
-Example Request
+```
+
+### Form Data
+
+| Field | Type |
+|---|---|
+| file | Resume file |
+
+### Query Parameters
+
+| Parameter | Description |
+|---|---|
+| top_k | Number of recommendations |
+| preferred_location | Optional location boost |
+| experience_level | Optional experience boost |
+
+---
+
+# Example Request
+
+```bash
 curl -X POST \
-"http://127.0.0.1:8000/recommend?top_k=10&preferred_location=Atlanta&experience_level=Entry%20level" \
--F "file=@resume.pdf"
-Example Response
+  "http://127.0.0.1:8000/recommend?top_k=10&preferred_location=Atlanta&experience_level=Entry%20level" \
+  -F "file=@resume.pdf"
+```
+
+---
+
+# Example Response
+
+```json
 {
   "source": "dynamic_live_jobs",
-  "total_jobs_fetched": 120,
+  "total_jobs_fetched": 82,
   "recommendations": [
     {
-      "title": "Machine Learning Engineer",
+      "title": "Data Science Intern",
       "location": "Atlanta, Georgia",
       "similarity": 0.82
     }
   ]
 }
-AI / NLP Features
-Resume Query Generation
+```
 
-The system extracts noun phrases from resumes using spaCy and converts them into intelligent job search queries.
+---
 
-Example generated queries:
+# Machine Learning Details
 
-machine learning
-data science
-python developer
-artificial intelligence
-statistical analysis
-Semantic Similarity Search
+## Embedding Model
 
-The project uses:
+```python
+SentenceTransformer("all-MiniLM-L6-v2")
+```
 
-sentence-transformers/all-MiniLM-L6-v2
-FAISS vector indexing
+Used to convert:
+- resumes
+- job descriptions
 
-This allows matching based on semantic meaning instead of keyword matching.
+into semantic vector embeddings.
 
-Performance Optimizations
+---
 
-Implemented optimizations include:
+## Similarity Search
 
-Global model loading
-Reusable FAISS engine
-Dynamic live job retrieval
-Reduced duplicate embedding generation
-Query filtering using stop words
-Score boosting instead of hard filtering
-Future Improvements
-Authentication system
-Save favorite jobs
-User profiles
-Resume feedback scoring
-Fine-tuned recommendation models
-GPU acceleration
-Docker deployment
-Cloud deployment (AWS/GCP/Azure)
-Redis caching
-Background task queues
-Screenshots
+FAISS is used for:
+- fast nearest-neighbor search
+- scalable semantic retrieval
+
+---
+
+# Future Improvements
+
+- User authentication
+- Save favorite jobs
+- Better resume parsing
+- GPU acceleration
+- Caching embeddings
+- Better query ranking
+- Support multiple job APIs
+- Fine-tuned transformer models
+- Deployment with Docker + AWS
+
+---
+
+# Screenshots
 
 Add screenshots of:
+- Resume upload page
+- Recommendation results
+- Swagger API docs
 
-Resume upload page
-Recommended jobs page
-Swagger API docs
+---
+
+# Author
+
+Aayan Patel
+
+Data Science Student
+
+---
+
+# License
+
+MIT License
