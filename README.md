@@ -323,15 +323,6 @@ FAISS is used for:
 
 ---
 
-# Screenshots
-
-Add screenshots of:
-- Resume upload page
-- Recommendation results
-- Swagger API docs
-
----
-
 # Author
 
 Aayan Patel
