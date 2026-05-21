@@ -15,6 +15,7 @@ from src.core.resume_parser import (
 import tempfile
 import logging
 import os
+import pandas as pd
 
 # -----------------------
 # Logging
@@ -157,6 +158,9 @@ async def recommend(
                     f"Failed fetching jobs for query '{query}': {e}"
                 )
 
+        # Convert to dataframe AFTER collecting everything
+        all_jobs = pd.DataFrame(all_jobs)
+
         logger.info(f"Fetched {len(all_jobs)} jobs.")
 
         # -----------------------
@@ -173,7 +177,7 @@ async def recommend(
         return {
             "source": "dynamic_live_jobs",
             "total_jobs_fetched": len(all_jobs),
-            "recommendations": recommendations
+            "recommendations": recommendations.to_dict(orient="records")
         }
 
     except Exception as e:
