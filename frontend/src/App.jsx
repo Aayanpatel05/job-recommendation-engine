@@ -40,7 +40,7 @@ function App() {
 
       const data = await response.json();
 
-      console.log(data);
+      console.log("Recommendation data:", data);
 
       setRecommendations(data.recommendations || []);
     } catch (err) {
@@ -84,6 +84,7 @@ function App() {
             style={{
               width: "100%",
               padding: "10px",
+              boxSizing: "border-box",
             }}
           />
         </div>
@@ -138,29 +139,103 @@ function App() {
 
           {recommendations.map((job, index) => (
             <div
-              key={index}
+              key={job.job_id || index}
               style={{
                 border: "1px solid #ccc",
                 borderRadius: "10px",
-                padding: "15px",
-                marginBottom: "15px",
+                padding: "20px",
+                marginBottom: "20px",
+                textAlign: "left",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
               }}
             >
-              <h3>{job.title}</h3>
+              <h3
+                style={{
+                  marginTop: 0,
+                  marginBottom: "12px",
+                }}
+              >
+                {job.title}
+              </h3>
 
-              <p>
-                <strong>Location:</strong> {job.location}
+              <p style={{ marginBottom: "8px" }}>
+                <strong>Company:</strong>{" "}
+                {job.company || "Not specified"}
               </p>
 
-              <p>
-                <strong>Similarity Score:</strong>{" "}
-                {Number(job.similarity).toFixed(3)}
+              <p style={{ marginBottom: "8px" }}>
+                <strong>Location:</strong>{" "}
+                {job.location || "Not specified"}
+              </p>
+
+              <p style={{ marginBottom: "8px" }}>
+                <strong>Match Score:</strong>{" "}
+                {Number(job.similarity).toFixed(1)}%
               </p>
 
               {job.experience_level && (
-                <p>
+                <p style={{ marginBottom: "15px" }}>
                   <strong>Experience:</strong>{" "}
                   {job.experience_level}
+                </p>
+              )}
+
+              {/* Why this job matches */}
+              {job.match_reasons && (
+                <div
+                  style={{
+                    marginTop: "15px",
+                    padding: "15px",
+                    background: "#f7f7f7",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <strong>Why this job matches:</strong>
+
+                  {Array.isArray(job.match_reasons) ? (
+                    <ul style={{ marginTop: "8px" }}>
+                      {job.match_reasons.map((reason, reasonIndex) => (
+                        <li key={reasonIndex}>{reason}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p style={{ marginTop: "8px" }}>
+                      {job.match_reasons}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Apply button */}
+              {job.url && (
+                <div style={{ marginTop: "20px" }}>
+                  <a
+                    href={job.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "inline-block",
+                      padding: "10px 16px",
+                      background: "#000",
+                      color: "#fff",
+                      textDecoration: "none",
+                      borderRadius: "6px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Apply for this job →
+                  </a>
+                </div>
+              )}
+
+              {!job.url && (
+                <p
+                  style={{
+                    marginTop: "15px",
+                    color: "#777",
+                  }}
+                >
+                  Application link unavailable
                 </p>
               )}
             </div>

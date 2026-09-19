@@ -1,86 +1,224 @@
 import re
-import spacy
-
-nlp = spacy.load("en_core_web_sm")
 
 
 DEFAULT_QUERIES = [
-    "software development",
-    "data science",
-    "machine learning"
+    "software engineering internship",
+    "backend engineering internship",
+    "data science internship",
+    "machine learning internship",
+    "data analyst internship"
 ]
-
-# Words/phrases that are too generic for job searching
-STOP_WORDS = {
-    "us citizen",
-    "gpa",
-    "expected graduation",
-    "relevant courses",
-    "coursework",
-    "skills",
-    "experience",
-    "projects",
-    "education",
-    "work experience",
-    "professional experience",
-    "summary",
-    "contact",
-    "references",
-    "phone",
-    "email",
-    "linkedin"
-}
-
-
-def is_valid_phrase(phrase: str) -> bool:
-
-    # Minimum length
-    if len(phrase) < 4:
-        return False
-
-    # Remove weird symbols
-    if re.search(r"[^a-zA-Z0-9\s]", phrase):
-        return False
-
-    # Too many digits
-    digit_count = sum(char.isdigit() for char in phrase)
-
-    if len(phrase) > 0 and (digit_count / len(phrase)) > 0.2:
-        return False
-
-    # Generic stop phrases
-    if phrase in STOP_WORDS:
-        return False
-
-    return True
 
 
 def generate_queries_from_resume(
     resume_text,
-    max_queries=10
+    max_queries=5,
+    experience_level=None
 ):
-    doc = nlp(resume_text)
+    """
+    Generate role-based job-search queries from a resume.
 
-    phrases = []
+    Instead of searching individual resume phrases such as
+    'webhooks' or 'woocommerce', this identifies likely job
+    categories based on the candidate's skills and experience.
+    """
 
-    for chunk in doc.noun_chunks:
+    text = resume_text.lower()
 
-        phrase = chunk.text.strip().lower()
+    queries = []
 
-        # Remove extra spaces
-        phrase = re.sub(r"\s+", " ", phrase)
+    # --------------------------------------------------
+    # Experience term
+    # --------------------------------------------------
 
-        if not is_valid_phrase(phrase):
-            continue
+    experience_terms = {
+        "Internship": "internship",
+        "Entry level": "entry level",
+        "Associate": "associate",
+        "Mid-Senior level": "senior",
+        "Director": "director",
+        "Executive": "executive"
+    }
 
-        # Skip duplicates
-        if phrase in phrases:
-            continue
+    experience_term = experience_terms.get(
+        experience_level,
+        ""
+    )
 
-        phrases.append(phrase)
+    def add_query(role):
+        if experience_term:
+            query = f"{role} {experience_term}"
+        else:
+            query = role
 
-    # Fallback queries
-    if not phrases:
+        if query not in queries:
+            queries.append(query)
+
+    # --------------------------------------------------
+    # Software Engineering
+    # --------------------------------------------------
+
+    software_keywords = [
+        "java",
+        "python",
+        "javascript",
+        "c++",
+        "c#",
+        "spring boot",
+        "software engineering",
+        "software development",
+        "programming",
+        "git",
+        "github"
+    ]
+
+    if any(keyword in text for keyword in software_keywords):
+        add_query("software engineering")
+
+    # --------------------------------------------------
+    # Backend Engineering
+    # --------------------------------------------------
+
+    backend_keywords = [
+        "backend",
+        "back-end",
+        "spring boot",
+        "rest api",
+        "rest apis",
+        "api",
+        "webhook",
+        "webhooks",
+        "fastapi",
+        "server",
+        "database",
+        "sql"
+    ]
+
+    if any(keyword in text for keyword in backend_keywords):
+        add_query("backend engineering")
+
+    # --------------------------------------------------
+    # Data Science
+    # --------------------------------------------------
+
+    data_science_keywords = [
+        "data science",
+        "pandas",
+        "numpy",
+        "scikit-learn",
+        "sklearn",
+        "regression",
+        "statistics",
+        "statistical",
+        "data analysis",
+        "data analytics"
+    ]
+
+    if any(keyword in text for keyword in data_science_keywords):
+        add_query("data science")
+
+    # --------------------------------------------------
+    # Machine Learning / AI
+    # --------------------------------------------------
+
+    ml_keywords = [
+        "machine learning",
+        "artificial intelligence",
+        "deep learning",
+        "pytorch",
+        "tensorflow",
+        "transformer",
+        "bert",
+        "llm",
+        "natural language processing",
+        "nlp",
+        "computer vision",
+        "mediapipe"
+    ]
+
+    if any(keyword in text for keyword in ml_keywords):
+        add_query("machine learning")
+
+    # --------------------------------------------------
+    # Data Analyst
+    # --------------------------------------------------
+
+    analyst_keywords = [
+        "data analyst",
+        "data analysis",
+        "analytics",
+        "sql",
+        "tableau",
+        "power bi",
+        "excel",
+        "statistics",
+        "regression"
+    ]
+
+    if any(keyword in text for keyword in analyst_keywords):
+        add_query("data analyst")
+
+    # --------------------------------------------------
+    # Full Stack Development
+    # --------------------------------------------------
+
+    fullstack_keywords = [
+        "full stack",
+        "fullstack",
+        "react",
+        "frontend",
+        "front-end",
+        "javascript",
+        "html",
+        "css"
+    ]
+
+    if any(keyword in text for keyword in fullstack_keywords):
+        add_query("full stack developer")
+
+    # --------------------------------------------------
+    # Cloud / Integration Engineering
+    # --------------------------------------------------
+
+    integration_keywords = [
+        "api integration",
+        "integration",
+        "woocommerce",
+        "webhooks",
+        "rest api",
+        "rest apis",
+        "cloud",
+        "aws",
+        "azure",
+        "gcp"
+    ]
+
+    if any(keyword in text for keyword in integration_keywords):
+        add_query("software integration engineer")
+
+    # --------------------------------------------------
+    # Remove duplicates
+    # --------------------------------------------------
+
+    unique_queries = []
+
+    for query in queries:
+
+        query = re.sub(
+            r"\s+",
+            " ",
+            query
+        ).strip()
+
+        if query not in unique_queries:
+            unique_queries.append(query)
+
+    # --------------------------------------------------
+    # Fallback
+    # --------------------------------------------------
+
+    if not unique_queries:
+
         return DEFAULT_QUERIES[:max_queries]
 
-    return phrases[:max_queries]
+    return unique_queries[:max_queries]

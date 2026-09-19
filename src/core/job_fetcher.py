@@ -1,98 +1,105 @@
+import os
+import re
 import requests
+from dotenv import load_dotenv
 
+load_dotenv()
 
-APP_ID = "YOUR_ADZUNA_APP_ID"
-APP_KEY = "YOUR_ADZUNA_APP_KEY"
+APP_ID = os.getenv("ADZUNA_APP_ID")
+APP_KEY = os.getenv("ADZUNA_APP_KEY")
 
 BASE_URL = "https://api.adzuna.com/v1/api/jobs"
 
 
-def detect_experience_level(title, description):
+def detect_experience_level(title, description=""):
     """
-    Detect the likely experience level required by a job posting.
+    Determine experience level primarily from the job title.
+    The title is much more reliable than searching the entire description.
     """
 
-    text = f"{title} {description}".lower()
+    title_lower = title.lower().strip()
 
-    # Internship / Co-op
-    if any(term in text for term in [
-        "intern",
-        "internship",
-        "co-op",
-        "coop",
-        "co op"
-    ]):
-        return "intern"
+    # Internship / co-op
+    if re.search(r"\b(intern|internship|co[- ]?op)\b", title_lower):
+        return "Internship"
 
-    # Entry level / New Grad
-    if any(term in text for term in [
-        "entry level",
-        "entry-level",
-        "junior",
-        "new grad",
-        "new graduate",
-        "graduate program",
-        "early career"
-    ]):
-        return "entry"
+    # Director / executive
+    if re.search(
+        r"\b(director|vice president|vp|chief|executive)\b",
+        title_lower
+    ):
+        return "Executive"
 
-    # Senior
-    if any(term in text for term in [
-        "senior",
-        "sr.",
-        "sr ",
-        "5+ years",
-        "6+ years",
-        "7+ years",
-        "8+ years"
-    ]):
-        return "senior"
+    # Senior / lead / principal
+    if re.search(
+        r"\b(senior|sr\.?|lead|principal|staff)\b",
+        title_lower
+    ):
+        return "Mid-Senior level"
 
-    # Lead / Principal / Staff
-    if any(term in text for term in [
-        "lead",
-        "principal",
-        "staff engineer",
-        "staff scientist",
-        "director"
-    ]):
-        return "advanced"
+    # Entry / junior
+    if re.search(
+        r"\b(entry[- ]level|junior|jr\.?)\b",
+        title_lower
+    ):
+        return "Entry level"
 
-    # Default
-    return "mid"
+    # Associate
+    if re.search(r"\bassociate\b", title_lower):
+        return "Associate"
+
+    # Fallback: only inspect the description for very explicit phrases
+    description_lower = description.lower()
+
+    if re.search(
+        r"\b(internship position|intern position|summer internship)\b",
+        description_lower
+    ):
+        return "Internship"
+
+    if re.search(
+        r"\b(entry[- ]level position|entry[- ]level role)\b",
+        description_lower
+    ):
+        return "Entry level"
+
+    return "Unknown"
 
 
 def fetch_jobs(
     query,
-    location="us",
+    location=None,
     results_per_page=50,
     max_pages=3,
     remote_only=False,
-    desired_location=None,
     experience_level=None
 ):
     """
-    Fetch jobs from the Adzuna API.
+    Fetch jobs from Adzuna.
 
-    Parameters:
-        query: Job search query.
-        location: Adzuna country code.
-        results_per_page: Number of jobs returned per page.
-        max_pages: Maximum number of pages to retrieve.
-        remote_only: If True, only return jobs mentioning remote work.
-        desired_location: User's desired location, e.g. "Atlanta, GA".
-        experience_level: User's desired experience level, e.g. "intern".
+    query:
+        Job role / skills being searched.
 
-    Returns:
-        List of job dictionaries.
+    location:
+        Preferred city/region.
+
+    experience_level:
+        Internship, Entry level, Associate, Mid-Senior level,
+        Director, or Executive.
     """
+
+    if not APP_ID or not APP_KEY:
+        raise ValueError(
+            "Adzuna credentials are missing. "
+            "Set ADZUNA_APP_ID and ADZUNA_APP_KEY in .env"
+        )
 
     all_jobs = []
     seen_ids = set()
 
     for page in range(1, max_pages + 1):
 
-        url = f"{BASE_URL}/{location}/search/{page}"
+        url = f"{BASE_URL}/us/search/{page}"
 
         params = {
             "app_id": APP_ID,
@@ -102,19 +109,22 @@ def fetch_jobs(
             "content-type": "application/json",
         }
 
-        # Let Adzuna perform an initial location filter
-        if desired_location:
-            params["where"] = desired_location
+        # Let Adzuna handle the initial location search
+        if location:
+            params["where"] = location
 
-        response = requests.get(
-            url,
-            params=params,
-            timeout=15
-        )
+        try:
+            response = requests.get(
+                url,
+                params=params,
+                timeout=15
+            )
+            response.raise_for_status()
+            data = response.json()
 
-        response.raise_for_status()
-
-        data = response.json()
+        except requests.RequestException as e:
+            print(f"Failed fetching jobs for query '{query}': {e}")
+            continue
 
         results = data.get("results", [])
 
@@ -125,106 +135,66 @@ def fetch_jobs(
 
             job_id = job.get("id")
 
-            # Skip jobs without IDs or duplicate jobs
             if not job_id or job_id in seen_ids:
                 continue
 
             seen_ids.add(job_id)
 
-            title = job.get("title", "")
-            description = job.get("description", "")
+            title = job.get("title", "").strip()
+            description = job.get("description", "").strip()
 
-            location_name = job.get(
-                "location", {}
-            ).get(
+            location_data = job.get("location", {})
+            location_name = location_data.get(
                 "display_name", ""
-            )
+            ).strip()
 
-            company = job.get(
-                "company", {}
-            ).get(
+            company_data = job.get("company", {})
+            company = company_data.get(
                 "display_name", ""
-            )
+            ).strip()
 
-            # Adzuna application/job listing URL
             redirect_url = job.get("redirect_url", "")
 
-            # Detect experience requirement
-            detected_experience = detect_experience_level(
+            detected_level = detect_experience_level(
                 title,
                 description
             )
 
-            # Combine information used by the embedding model
-            full_text = f"""
-            {title}
-
-            {company}
-
-            {location_name}
-
-            {description}
-            """
-
-            combined = (
-                f"{title} "
-                f"{description} "
-                f"{location_name}"
+            # Remote detection
+            combined_text = (
+                f"{title} {description} {location_name}"
             ).lower()
 
-            # Remote filtering
-            if remote_only:
-                remote_terms = [
+            is_remote = any(
+                phrase in combined_text
+                for phrase in [
                     "remote",
                     "work from home",
-                    "work-from-home",
-                    "fully remote"
+                    "fully remote",
+                    "remote position"
                 ]
+            )
 
-                if not any(term in combined for term in remote_terms):
+            if remote_only and not is_remote:
+                continue
+
+            # Do NOT remove unknown experience jobs here.
+            # Let the recommendation engine score them.
+            if experience_level:
+                if (
+                    detected_level != experience_level
+                    and detected_level != "Unknown"
+                ):
+                    # Keep remote/unknown jobs out only when
+                    # the detected level directly conflicts.
                     continue
 
-            # Optional experience filtering
-            #
-            # This does NOT affect semantic ranking yet.
-            # It simply allows the caller to request jobs
-            # matching a specific experience level.
-            if experience_level:
-                requested_level = experience_level.lower().strip()
-
-                if requested_level not in [
-                    "all",
-                    "any",
-                    ""
-                ]:
-
-                    # Allow closely related entry-level terms
-                    if requested_level == "intern":
-                        valid_levels = ["intern"]
-
-                    elif requested_level in [
-                        "entry",
-                        "entry-level",
-                        "entry level",
-                        "new grad"
-                    ]:
-                        valid_levels = ["entry", "intern"]
-
-                    elif requested_level == "senior":
-                        valid_levels = ["senior"]
-
-                    elif requested_level in [
-                        "mid",
-                        "mid-level",
-                        "mid level"
-                    ]:
-                        valid_levels = ["mid"]
-
-                    else:
-                        valid_levels = [requested_level]
-
-                    if detected_experience not in valid_levels:
-                        continue
+            full_text = f"""
+            {title}
+            {company}
+            {location_name}
+            {description}
+            """
 
             all_jobs.append({
                 "job_id": job_id,
@@ -233,12 +203,9 @@ def fetch_jobs(
                 "full_text": full_text,
                 "location": location_name,
                 "company": company,
-
-                # New structured field
-                "experience_level": detected_experience,
-
-                # Application/listing URL
+                "experience_level": detected_level,
                 "url": redirect_url,
+                "is_remote": is_remote
             })
 
     return all_jobs
