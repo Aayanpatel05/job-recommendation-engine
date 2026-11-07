@@ -486,9 +486,9 @@ Top Recommendations
 
 The recommendation engine was manually evaluated using technical and data science resume test cases.
 
-Example Precision@10 results:
+Example Precision@100 results:
 
-| Test Case                       | Precision@10 |
+| Test Case                       | Precision@100 |
 | ------------------------------- | -----------: |
 | Associate Data Analytics        |          90% |
 | Mid-Senior Software Engineering |         100% |
